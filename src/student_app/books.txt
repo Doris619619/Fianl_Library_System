@@ -1,0 +1,29 @@
+ISBN: 9787302643881
+Title: Data Structures and Algorithm Analysis
+Author: Mark Allen Weiss
+Publisher: Pearson
+Date: 2022-08
+Category: TP311.1
+CallNumber: TP311.1/W123
+Total: 15
+Available: 7
+
+ISBN: 9787111603708
+Title: Computer Networks
+Author: Andrew S. Tanenbaum
+Publisher: Pearson Education
+Date: 2021-01
+Category: TP393.02
+CallNumber: TP393.02/X123
+Total: 20
+Available: 10
+
+ISBN: 9787115546081
+Title: C++ Primer Plus
+Author: Stephen Prata
+Publisher: Addison-Wesley
+Date: 2020-07
+Category: TP312.8
+CallNumber: TP312.8/P123
+Total: 5
+Available: 2
