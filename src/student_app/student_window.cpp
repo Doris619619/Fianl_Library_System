@@ -135,100 +135,6 @@ static QPushButton* makeSideBtn(const QString& text, QWidget* parent) {
 }
 
 
-/*
-StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
-    setWindowTitle(u8"SeatUI 学生端");
-    resize(1000, 680);
-
-    // ===== 左侧侧边栏 =====
-    auto side = new QFrame(this);
-    side->setFixedWidth(190);
-    side->setStyleSheet("QFrame{ background:#0f172a; border-right:1px solid #1f2937; }");
-    auto sideLy = new QVBoxLayout(side);
-    sideLy->setContentsMargins(12,16,12,16);
-    sideLy->setSpacing(10);
-
-    // 顶部"返回登录"（非互斥按钮，不高亮选中状态）
-    auto btnBack = new QPushButton(u8"← 返回登录", side);
-    btnBack->setCursor(Qt::PointingHandCursor);
-    btnBack->setStyleSheet(
-        "QPushButton{ text-align:left; padding:8px 12px; border:0; border-radius:8px; "
-        "  color:#cbd5e1; background:rgba(255,255,255,0.04);} "
-        "QPushButton:hover{ background:rgba(255,255,255,0.10);} "
-        "QPushButton:pressed{ background:rgba(37,99,235,0.25); color:#fff; }"
-        );
-    sideLy->addWidget(btnBack);
-
-    auto title = new QLabel(u8"学生端", side);
-    title->setStyleSheet("color:#cbd5e1; font-weight:600; padding:4px;");
-    sideLy->addWidget(title);
-
-    btnDash = makeSideBtn(u8"🏠 仪表盘", side);
-    btnNav  = makeSideBtn(u8"🧭 导航", side);
-    btnHeat = makeSideBtn(u8"🔥 热力图", side);
-    btnHelp = makeSideBtn(u8"🆘 一键求助", side);
-    btnLive = makeSideBtn(u8"💺 座位实况", side);
-    btnBook = makeSideBtn(u8"📚 图书查询", side);
-    btnPomo = makeSideBtn(u8"🍅 专注时刻", side);
-
-
-    // 按钮互斥
-    btnDash->setAutoExclusive(true);
-    btnNav->setAutoExclusive(true);
-    btnHeat->setAutoExclusive(true);
-    btnHelp->setAutoExclusive(true);
-    btnLive->setAutoExclusive(true);
-    btnBook->setAutoExclusive(true);
-    btnPomo->setAutoExclusive(true);
-
-    sideLy->addWidget(btnDash);
-    sideLy->addWidget(btnNav);
-    sideLy->addWidget(btnHeat);
-    sideLy->addWidget(btnHelp);
-    sideLy->addWidget(btnLive);
-    sideLy->addWidget(btnBook);
-    sideLy->addWidget(btnPomo);
-    sideLy->addStretch();
-
-    // ===== 右侧页面区（堆叠）=====
-    pages = new QStackedWidget(this);
-    pages->addWidget(buildDashboardPage());   // 0
-    pages->addWidget(buildNavigationPage());  // 1
-    pages->addWidget(buildHeatmapPage());     // 2
-    pages->addWidget(buildHelpPage());        // 3
-    pages->addWidget(buildLivePage());        // 4
-    pages->addWidget(buildBookSearchPage());  // 5 - 书籍搜索页面
-    pages->addWidget(buildPomodoroPage()); //6
-
-    // 默认落在仪表盘
-    pages->setCurrentIndex(0);
-    btnDash->setChecked(true);
-
-    // 根布局：左侧栏 + 右侧页面
-    auto central = new QWidget(this);
-    auto root = new QHBoxLayout(central);
-    root->setContentsMargins(0,0,0,0);
-    root->setSpacing(0);
-    root->addWidget(side);
-    root->addWidget(pages, 1);
-    setCentralWidget(central);
-
-    // 侧边栏信号
-    connect(btnBack, &QPushButton::clicked, this, &StudentWindow::onBackToLogin);
-    connect(btnDash, &QPushButton::clicked, this, &StudentWindow::gotoDashboard);
-    connect(btnNav,  &QPushButton::clicked, this, &StudentWindow::gotoNavigation);
-    connect(btnHeat, &QPushButton::clicked, this, &StudentWindow::gotoHeatmap);
-    connect(btnHelp, &QPushButton::clicked, this, &StudentWindow::gotoHelp);
-    connect(btnLive, &QPushButton::clicked, this, &StudentWindow::gotoLive);
-    connect(btnBook, &QPushButton::clicked, this, &StudentWindow::gotoBookSearch);
-    connect(btnPomo, &QPushButton::clicked, this, &StudentWindow::gotoPomodoro);
-
-    // 构造里：监听消息
-    initWsClient();
-}
-
-
-*/
 
 StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(u8"SeatUI 学生端");
@@ -455,18 +361,18 @@ QWidget* StudentWindow::buildBookSearchPage() {
     title->setStyleSheet("font-weight:600; font-size:16px;");
     root->addWidget(title);
 
-    // 顶部输入行：提示"作者 或 书名 关键字"
+    // to give some tips
     auto row = new QHBoxLayout();
     row->setSpacing(8);
     auto lab = new QLabel(u8"关键词：", page);
     bookInput = new QLineEdit(page);
     bookInput->setPlaceholderText(u8"输入作者或书名的一部分，例如：Tanenbaum / Data / Prata …");
 
-    // 输入框：文字白色、placeholder 浅灰、选中背景、边框
+    // theme mode: dark but let the words stand out
     bookInput->setStyleSheet(
         "QLineEdit{"
-        "  color:#e5e7eb;"                    /* 文本白-浅 */
-        "  background:#0f172a;"               /* 深色背景（可与你的页面背景一致） */
+        "  color:#e5e7eb;"                   
+        "  background:#0f172a;"               /* 深色背景 */
         "  border:1px solid #94a3b8;"
         "  border-radius:12px;"
         "  padding:8px 12px;"
@@ -477,7 +383,7 @@ QWidget* StudentWindow::buildBookSearchPage() {
         "}"
         );
 
-    // 兼容：有些平台/样式下 placeholder 颜色需要通过 QPalette 指定
+    
     {
         QPalette pal = bookInput->palette();
         pal.setColor(QPalette::Text, QColor("#e5e7eb"));               // 正文字
@@ -515,7 +421,7 @@ QWidget* StudentWindow::buildBookSearchPage() {
     row->addWidget(bookSearchBtn);
     root->addLayout(row);
 
-    // 结果表（九列，逐项展示完整信息）
+    // result table
     bookTable = new QTableWidget(page);
     bookTable->setColumnCount(9);
     bookTable->setHorizontalHeaderLabels({
@@ -527,24 +433,24 @@ QWidget* StudentWindow::buildBookSearchPage() {
     bookTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     root->addWidget(bookTable, 1);
 
-    // 命中为空时的提示
+    // tips when there is no book
     bookHint = new QLabel(u8"暂无此书籍。", page);
     bookHint->setStyleSheet("color:#93a4b5;");
     bookHint->setVisible(false);
     root->addWidget(bookHint);
 
-    // 连接搜索按钮
+    // connect search buttion
     connect(bookSearchBtn, &QPushButton::clicked, this, &StudentWindow::onSearchBooks);
 
-    // 修改部分开始 - 替换原来的书籍文件加载代码
+    // load books
     if (!bookEngine.ready()) {
-        const QString path = locateBooksFile();  // 使用 locateBooksFile() 函数获取路径
+        const QString path = locateBooksFile(); 
         QString err;
         if (!path.isEmpty()) {
-            bookEngine.loadFromFile(path, &err); // 失败先不弹，onSearchBooks 再提示
+            bookEngine.loadFromFile(path, &err); 
         }
     }
-    // 修改部分结束
+
 
     bookPage = page;
     return page;
@@ -557,7 +463,7 @@ void StudentWindow::onSearchBooks() {
         return;
     }
 
-    // 若尚未加载，尝试再加载一次（防止首次进入失败）
+    // 若尚未加载，尝试再加载一次）
     if (!bookEngine.ready()) {
         const QString path = locateBooksFile();
         QString err;
@@ -586,7 +492,7 @@ void StudentWindow::onSearchBooks() {
         return;
     }
     bookHint->setVisible(false);
-
+// fill in the table
     bookTable->setRowCount(matches.size());
     for (int i=0;i<matches.size();++i) {
         const auto& b = matches[i];
@@ -857,43 +763,7 @@ void StudentWindow::onResetHelp() {
 }
 
 
-/*
-void StudentWindow::onSubmitHelp() {
-    const QString desc = helpText_->toPlainText().trimmed();
 
-    if (desc.isEmpty() && helpImgBytes_.isEmpty()) {
-        CardDialog(u8"内容为空", u8"请至少填写文字或选择一张图片。", this).exec();
-        return;
-    }
-
-    // —— 组装 JSON 载荷 —— //
-    QJsonObject root;
-    root["type"] = "student_help";
-    root["user"] = "student"; // 可替换成登录用户名/UID
-    root["description"] = desc;
-    root["created_at"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-
-    if (!helpImgBytes_.isEmpty()) {
-        QJsonObject img;
-        img["filename"] = helpImgFilename_.isEmpty() ? "help.png" : helpImgFilename_;
-        img["mime"]     = helpImgMime_.isEmpty() ? "image/png" : helpImgMime_;
-        img["base64"]   = QString::fromLatin1(helpImgBytes_.toBase64());
-        root["image"]   = img;
-    }
-
-    const QByteArray payload = QJsonDocument(root).toJson(QJsonDocument::Compact);
-    // qDebug() << "HELP JSON:" << payload;
-
-    // —— 发送到管理员端 —— //
-    wsSend(payload);
-
-    // 成功提示
-    CardDialog(u8"已提交", u8"你的求助信息已发送，管理员会尽快处理。", this).exec();
-
-    // 清空
-    onResetHelp();
-}
-*/
 void StudentWindow::onSubmitHelp() {
     const QString desc = helpText_->toPlainText().trimmed();
 
@@ -931,37 +801,6 @@ void StudentWindow::onSubmitHelp() {
 }
 
 
-
-/*
-void StudentWindow::initWsClient() {
-    ws_ = new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this);
-    ws_->ignoreSslErrors();  // 非 TLS
-    wsReady_ = false;
-
-    connect(ws_, &QWebSocket::connected, this, [this]{
-        wsReady_ = true;
-        // 可选：握手
-        ws_->sendTextMessage(QStringLiteral(R"({"type":"hello","role":"student"})"));
-    });
-    connect(ws_, &QWebSocket::disconnected, this, [this]{
-        wsReady_ = false;
-        // 简单重连（本机单进程足够稳定，失连时延时重连）
-        QTimer::singleShot(1000, this, [this]{
-            ws_->open(QUrl(QStringLiteral("ws://127.0.0.1:12345")));
-        });
-    });
-    connect(ws_, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::errorOccurred),
-            this, [this](auto){
-                // 首次连不上也尝试重连
-                QTimer::singleShot(1000, this, [this]{
-                    if (ws_ && !wsReady_) ws_->open(QUrl(QStringLiteral("ws://127.0.0.1:12345")));
-                });
-            });
-
-    // 首次连接
-    ws_->open(QUrl(QStringLiteral("ws://127.0.0.1:12345")));
-}
-*/
 
 void StudentWindow::initWsClient() {
     ws_ = new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this);
@@ -1018,36 +857,6 @@ void StudentWindow::initWsClient() {
         }
 
 
-        // 在 if (obj.value("type").toString() == "seat_snapshot") { ... } 之后补一个 else if
-        // else if (obj.value("type").toString() == "seat_update") {
-        //     const auto arr = obj.value("seats").toArray();  // 注意是 seats
-        //     for (const auto& it : arr) {
-        //         if (!it.isObject()) continue;
-        //         const auto o = it.toObject();
-        //         const QString id = o.value("id").toString();             // id
-        //         int st = 0;
-        //         // DB 发来是字符串："Seated"/"Unseated"/"Anomaly"
-        //         const QString s = o.value("state").toString();
-        //         if (s == "Seated") st = 1;
-        //         else if (s == "Anomaly") st = 2;
-        //         const QString since = o.value("last_update").toString(); // last_update
-        //         liveSetCell(id, st, since);
-        //     }
-        // }
-        // else if (obj.value("type").toString() == "seat_update") {
-        //     const auto seats = obj.value("seats").toArray();
-        //     for (const auto& v : seats) {
-        //         if (!v.isObject()) continue;
-        //         const auto o = v.toObject();
-        //         const QString id    = o.value("id").toString();
-        //         const QString stext = o.value("state").toString();
-        //         const int     code  = mapStateTextToCode(stext);
-        //         const QString since = unifyTsToLocalIso(o.value("last_update").toString());
-        //         // 你的原有更新函数：座位ID、状态码（0/1/2）、时间
-        //         liveSetCell(id, code, since);
-        //     }
-        //     // （可选）如果你页面有“汇总统计”，就读 obj["stats"] 去更新顶部数字
-        // }
 
         else if (obj.value("type").toString() == "seat_update") {
             const auto seats = obj.value("seats").toArray();
@@ -1105,42 +914,40 @@ void StudentWindow::liveSetCell(const QString& id, int state, const QString& sin
     }
 }
 
-/* =========================================
- * 番茄钟功能实现
- * ========================================= */
+
 
 void StudentWindow::gotoPomodoro() {
-    // 这里的 6 对应上面 addWidget 的顺序
+    // must match the up page index
     pages->setCurrentIndex(6);
     btnPomo->setChecked(true);
 }
 
 QWidget* StudentWindow::buildPomodoroPage() {
     auto page = new QWidget(this);
-    page->setStyleSheet("background:#0b1220;"); // 深色背景
+    page->setStyleSheet("background:#0b1220;"); // dark background
 
     auto ly = new QVBoxLayout(page);
     ly->setAlignment(Qt::AlignCenter);
     ly->setSpacing(30);
 
-    // 1. 状态文字
+    // state label
     pomoStatusLabel = new QLabel(u8"💪 保持专注", page);
     pomoStatusLabel->setStyleSheet("color:#9ca3af; font-size:24px; font-weight:600;");
-    pomoStatusLabel->setAlignment(Qt::AlignCenter);
+    pomoStatusLabel->setAlignment(Qt::AlignCenter);// place it in the center
 
-    // 2. 倒计时大数字
+    // 2. counting down number
     pomoTimeLabel = new QLabel("25:00", page);
     pomoTimeLabel->setAlignment(Qt::AlignCenter);
     pomoTimeLabel->setStyleSheet(
         "color:#e5e7eb; font-size:90px; font-weight:bold; font-family:Consolas, Monospace;"
         );
 
-    // 3. 按钮容器
+    // 3. buttons
     auto btnBox = new QHBoxLayout();
     btnBox->setSpacing(20);
     btnBox->setAlignment(Qt::AlignCenter);
 
-    // 开始/暂停按钮
+    // strat and end button
     pomoStartBtn = new QPushButton(u8"开始专注", page);
     pomoStartBtn->setFixedSize(140, 50);
     pomoStartBtn->setCursor(Qt::PointingHandCursor);
@@ -1149,7 +956,7 @@ QWidget* StudentWindow::buildPomodoroPage() {
         "QPushButton:hover{ background:#1d4ed8; }"
         );
 
-    // 重置按钮
+    // reseting the button
     auto resetBtn = new QPushButton(u8"重置", page);
     resetBtn->setFixedSize(100, 50);
     resetBtn->setCursor(Qt::PointingHandCursor);
@@ -1161,12 +968,12 @@ QWidget* StudentWindow::buildPomodoroPage() {
     btnBox->addWidget(pomoStartBtn);
     btnBox->addWidget(resetBtn);
 
-    // 4. 底部提示
+    // 4. hint label
     auto hint = new QLabel(u8"工作 25分钟 · 休息 5分钟", page);
     hint->setStyleSheet("color:#6b7280; font-size:14px; margin-top:10px;");
     hint->setAlignment(Qt::AlignCenter);
 
-    // 添加到布局
+
     ly->addStretch();
     ly->addWidget(pomoStatusLabel);
     ly->addWidget(pomoTimeLabel);
@@ -1174,26 +981,29 @@ QWidget* StudentWindow::buildPomodoroPage() {
     ly->addWidget(hint);
     ly->addStretch();
 
-    // 5. 初始化定时器
+    // initializa timer
     pomoTimer = new QTimer(this);
-    pomoTimer->setInterval(1000); // 1秒一次
-
+    pomoTimer->setInterval(1000); // once a time per second
+// start or pause
     connect(pomoStartBtn, &QPushButton::clicked, this, &StudentWindow::onPomoToggle);
+// reset
     connect(resetBtn,     &QPushButton::clicked, this, &StudentWindow::onPomoReset);
+//time out
     connect(pomoTimer,    &QTimer::timeout, this, &StudentWindow::onPomoTick);
 
     return page;
 }
 
+// start or pause logic
 void StudentWindow::onPomoToggle() {
     if (isPomoRunning) {
-        // 暂停
+        // pause
         pomoTimer->stop();
         isPomoRunning = false;
         pomoStartBtn->setText(u8"继续");
         pomoStartBtn->setStyleSheet("QPushButton{ background:#2563eb; color:white; border-radius:25px; font-size:18px; font-weight:600; }");
     } else {
-        // 开始
+        // start
         pomoTimer->start();
         isPomoRunning = true;
         pomoStartBtn->setText(u8"暂停");
@@ -1201,13 +1011,14 @@ void StudentWindow::onPomoToggle() {
     }
 }
 
+// reset logic
 void StudentWindow::onPomoReset() {
     pomoTimer->stop();
     isPomoRunning = false;
     isPomoWorkState = true;
-    pomoRemainingSec = 25 * 60; // 重置回 25分钟
+    pomoRemainingSec = 25 * 60; // reset to 25 minutes
 
-    // 恢复 UI
+    // reset UI again
     pomoTimeLabel->setText("25:00");
     pomoTimeLabel->setStyleSheet("color:#e5e7eb; font-size:90px; font-weight:bold; font-family:Consolas, Monospace;");
     pomoStatusLabel->setText(u8"💪 保持专注");
@@ -1215,6 +1026,8 @@ void StudentWindow::onPomoReset() {
     pomoStartBtn->setStyleSheet("QPushButton{ background:#2563eb; color:white; border-radius:25px; font-size:18px; font-weight:600; }");
 }
 
+
+// counting down logic
 void StudentWindow::onPomoTick() {
     if (pomoRemainingSec > 0) {
         pomoRemainingSec--;
@@ -1225,12 +1038,12 @@ void StudentWindow::onPomoTick() {
         pomoTimeLabel->setText(t);
     }
     else {
-        // 时间到
+        // times up
         pomoTimer->stop();
         isPomoRunning = false;
 
         if (isPomoWorkState) {
-            // 工作结束 -> 休息
+            // ending work- rest
             CardDialog(u8"专注完成", u8"太棒了！休息 5 分钟吧。", this).exec();
 
             isPomoWorkState = false;
@@ -1242,7 +1055,7 @@ void StudentWindow::onPomoTick() {
             pomoStartBtn->setText(u8"开始休息");
             pomoStartBtn->setStyleSheet("QPushButton{ background:#10b981; color:white; border-radius:25px; font-size:18px; font-weight:600; }");
         } else {
-            // 休息结束 -> 工作
+            // ending the rest - work
             CardDialog(u8"休息结束", u8"准备好开始新一轮专注了吗？", this).exec();
             onPomoReset();
         }
