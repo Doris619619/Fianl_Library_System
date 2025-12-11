@@ -211,16 +211,19 @@ void NavigationCanvas::drawSeats(QPainter& p){
 
 
 void NavigationCanvas::drawStartMark(QPainter& p){
-    p.setBrush(QColor(56,189,248));                  // Set fill color for the start mark
-    p.setPen(Qt::NoPen);                             // No outline for the circle
-    const int r = int(0.012 * qMin(lay.W, lay.H));   // Radius based on canvas size
-    p.drawEllipse(lay.startPt, r, r);                
+    p.setBrush(QColor(16, 185, 129)); // Emerald Green
+    p.setPen(Qt::NoPen);
+    
+    const int r = int(0.012 * qMin(lay.W, lay.H));
+    p.drawEllipse(lay.startPt, r, r); 
 
-    p.setPen(QColor(200,225,240));                   // Set text color
-    QFont f = p.font(); f.setBold(true);             
-    f.setPointSizeF(qMax(9.0, lay.H*0.018));         // Set font size based on height
-    p.setFont(f);                                    // Apply font setting
-    p.drawText(lay.startPt + QPoint(12, -6), "START"); // Draw "START" text near point
+    p.setPen(QColor(209, 250, 229)); // Light green text
+    QFont f = p.font(); 
+    f.setBold(true);             
+    f.setPointSizeF(qMax(9.0, lay.H*0.018));
+    p.setFont(f);                                    
+    
+    p.drawText(lay.startPt + QPoint(14, 5), u8"ENTRANCE"); 
 }
 
 void NavigationCanvas::drawScene(QPainter& p, const QSize&){
