@@ -89,6 +89,64 @@ void WsHub::onNewConnection() {
 }
 
 // Implement the interaction between the student client and admin.
+void WsHub::onSocketText(QWebSocket* socket, const QString& message) {
+    QJsonParseError error;
+    auto document = QJsonDocument::fromJson(message.toUtf8(), &error);
+
+    if (error.error != QJsonParseError::NoError || !document.isObject()) {
+        // If JSON parsing fails or the message format is not an object, log a warning and return.
+        qWarning() << "[WS] Invalid JSON received:" << error.errorString();
+        return;
+    }
+
+    const auto obj = document.object();// Convert the JSON document into a JSON object for easier subsequent access.
+    const auto type = obj.value("type").toString();
+
+    if (type == "hello") {
+        const auto role = obj.value("role").toString();
+        roles_[socket] = role;
+
+        qDebug() << "[WS] Client connected with role:" << role;
+
+        // 回复确认
+        QJsonObject reply;
+        reply["type"] = "hello_ack";
+        reply["role"] = role;
+        reply["status"] = "ok";
+        socket->sendTextMessage(QJsonDocument(reply).toJson());
+    }
+    else if (type == "student_help") {// If the message type is "student_help", it indicates that the student is requesting assistance.
+
+        qDebug() << "[WS] Forwarding student_help to admin clients";
+        bool forwarded = false;
+        for (auto* client : clients_) {
+            if (roles_.value(client) == "admin") {
+                client->sendTextMessage(message);
+                forwarded = true;
+            }
+        }
+
+        if (forwarded) {// If successfully forwarded to the administrator, notify the student client.
+            qDebug() << "[WS] student_help forwarded to admin(s)";
+
+            // 可选：给学生端一个确认
+            QJsonObject ack;
+            ack["type"] = "help_ack";
+            ack["status"] = "sent_to_admin";
+            ack["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+            socket->sendTextMessage(QJsonDocument(ack).toJson());
+        } else {
+            qWarning() << "[WS] No admin connected to forward student_help";
+        }
+    }
+
+    else {// If the message type is not "hello" or "student_help", log the unknown message type.
+        qDebug() << "[WS] Received unknown message type:" << type;
+    }
+}
+
+
+
 // Process the received JSON-formatted message and perform different actions
 //based on the message type (e.g., "hello" or "student_help").
 void WsHub::onTickPush() {
