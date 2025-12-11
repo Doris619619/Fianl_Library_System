@@ -49,30 +49,22 @@
 #include <QJsonArray>
 #include <QJsonParseError>
 
-// —— 时间归一化：把 DB/服务端来的各种时间串，统一转成“本地时 + ISO”或你想显示的样式
+// 时间归一，把 DB/服务端来的各种时间串，统一
 static QString unifyTsToLocalIso(const QString& s) {
     if (s.isEmpty()) return s;
-    // 优先按 ISO 吃
     QDateTime dt = QDateTime::fromString(s, Qt::ISODate);
     if (!dt.isValid()) {
         // 常见的“空格分隔本地时”
         dt = QDateTime::fromString(s, "yyyy-MM-dd HH:mm:ss");
     }
-    if (!dt.isValid()) return s; // 实在吃不下，原样返回，避免显示空
+    if (!dt.isValid()) return s; 
     // 统一转成本地时显示（你也可以改成 toUTC() + .toString(Qt::ISODate)）
     return dt.toLocalTime().toString(Qt::ISODate); // 例如 2025-12-03T21:50:10+08:00
 }
 
-// —— 状态字符串 → 代码（0/1/2）
-// static int mapStateTextToCode(const QString& s) {
-//     if (s == "Seated")  return 1;
-//     if (s == "Anomaly") return 2;
-//     return 0; // Unseated / 其它
-// }
 
 
-
-// 新的状态映射函数：Unseated->0，其他->1
+// 映射：Unseated->0，其他->1
 static int mapStateTextToCode(const QString& s) {
     if (s == "Unseated") return 0;  // 没人
     return 1;  // 有人（包括 "Seated" 和 "Anomaly"）
@@ -80,36 +72,33 @@ static int mapStateTextToCode(const QString& s) {
 
 
 
-// 修改 demoStateText 函数，只显示两种状态
+// 将0，1转换成文字
 static QString demoStateText(int s){
     if (s == 1) return QStringLiteral("有人");
     return QStringLiteral("没人");
 }
 
-// 修改 demoCellCss 函数，只显示两种颜色
+// demoCellCss ，展示座位占用情况的小格子
 static QString demoCellCss(int s){
     if (s == 1) return "QFrame{ background:#064e3b; border:1px solid #115e59; border-radius:12px; } QLabel{ color:#d1fae5; }"; // 绿：有人
     return "QFrame{ background:#101319; border:1px solid #374151; border-radius:12px; } QLabel{ color:#cbd5e1; }";        // 灰：没人
 }
 
 
-//文件读取
+//文件读取，把所有地方都翻一遍
 static QString locateBooksFile() {
-    // 1) 运行目录 /Input/books.txt  —— CMake 已拷贝
+    // 运行目录 /Input/books.txt  
     QStringList candidates;
     const QString appDir = QCoreApplication::applicationDirPath();
     candidates << QDir(appDir).filePath("Input/books.txt");
 
-    // 2) 兼容某些构建目录层级（上一层、上两层）
+    // 兼容某些构建目录层级（上一层、上两层）
     candidates << QDir(appDir + "/..").filePath("Input/books.txt");
 
     candidates << QDir(appDir + "/../..").filePath("Input/books.txt");
 
-    // 3) 当前工作目录（少数IDE会把 cwd 设置为别处）
+    // 当前工作目录（少数IDE会把 cwd 设置为别处）
     candidates << QDir::current().filePath("Input/books.txt");
-
-    // 4) 源码相对路径兜底：如果你仍然把 books.txt 放在 src/student_app/ 旁边（不推荐）
-    //    这里也给你一个兜底（请尽快改回放到 项目根/Input/）
     candidates << QDir(appDir).filePath("../src/student_app/books.txt");
 
     for (const QString& p : candidates) {
@@ -119,7 +108,7 @@ static QString locateBooksFile() {
 }
 
 
-// 侧边栏通用按钮
+// 左侧侧边栏创建按钮
 static QPushButton* makeSideBtn(const QString& text, QWidget* parent) {
     auto *b = new QPushButton(text, parent);
     b->setCheckable(true);
@@ -148,7 +137,7 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     sideLy->setContentsMargins(12,16,12,16);
     sideLy->setSpacing(10);
 
-    // 顶部"返回登录"（非互斥按钮，不高亮选中状态）
+    // 顶部返回登录按钮（非互斥按钮，不高亮选中状态）
     auto btnBack = new QPushButton(u8"← 返回登录", side);
     btnBack->setCursor(Qt::PointingHandCursor);
     btnBack->setStyleSheet(
@@ -163,9 +152,10 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     title->setStyleSheet("color:#cbd5e1; font-weight:600; padding:4px;");
     sideLy->addWidget(title);
 
-    btnDash = makeSideBtn(u8"🏠 仪表盘", side);
-    btnNav  = makeSideBtn(u8"🧭 导航", side);
-    btnHeat = makeSideBtn(u8"🔥 热力图", side);
+    //侧边栏功能按钮
+    btnDash = makeSideBtn(u8"🏠 欢迎", side);
+    btnNav  = makeSideBtn(u8"🧭 馆内地图", side);
+    btnHeat = makeSideBtn(u8"🌐 操作说明", side);
     btnHelp = makeSideBtn(u8"🆘 一键求助", side);
     btnLive = makeSideBtn(u8"💺 座位实况", side);
     btnBook = makeSideBtn(u8"📚 图书查询", side);
@@ -180,6 +170,7 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     btnBook->setAutoExclusive(true);
     btnPomo->setAutoExclusive(true);
 
+    //加入布局
     sideLy->addWidget(btnDash);
     sideLy->addWidget(btnNav);
     sideLy->addWidget(btnHeat);
@@ -189,7 +180,7 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     sideLy->addWidget(btnPomo);
     sideLy->addStretch();
 
-    // ===== 右侧页面区（堆叠）=====
+    // 页面区
     pages = new QStackedWidget(this);
     pages->addWidget(buildDashboardPage());   // 0
     pages->addWidget(buildNavigationPage());  // 1
@@ -199,7 +190,7 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     pages->addWidget(buildBookSearchPage());
     pages->addWidget(buildPomodoroPage()); //6  // 5 - 书籍搜索页面
 
-    // 默认落在仪表盘
+    // 默认页面
     pages->setCurrentIndex(0);
     btnDash->setChecked(true);
 
@@ -212,7 +203,7 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     root->addWidget(pages, 1);
     setCentralWidget(central);
 
-    // 侧边栏信号
+    // 点击按钮可以切换到该去的页面
     connect(btnBack, &QPushButton::clicked, this, &StudentWindow::onBackToLogin);
     connect(btnDash, &QPushButton::clicked, this, &StudentWindow::gotoDashboard);
     connect(btnNav,  &QPushButton::clicked, this, &StudentWindow::gotoNavigation);
@@ -221,131 +212,190 @@ StudentWindow::StudentWindow(QWidget* parent) : QMainWindow(parent) {
     connect(btnLive, &QPushButton::clicked, this, &StudentWindow::gotoLive);
     connect(btnBook, &QPushButton::clicked, this, &StudentWindow::gotoBookSearch);
     connect(btnPomo, &QPushButton::clicked, this, &StudentWindow::gotoPomodoro);
-    // 构造时不要直接connect ws_，应该通过 initWsClient() 来处理
     initWsClient();
 }
 
 
 
-/* ---------- 页面构建 ---------- */
+
 
 QWidget* StudentWindow::buildDashboardPage() {
     auto page = new QWidget(this);
+    // 保持深色背景风格
     page->setStyleSheet("background:#111827;");
 
     auto ly = new QVBoxLayout(page);
-    ly->setContentsMargins(20,20,20,20);
-    ly->setSpacing(14);
+    ly->setContentsMargins(40, 60, 40, 60); 
+    ly->setSpacing(20);
 
-    auto h = new QLabel(u8"👋 欢迎！在左侧选择功能：导航 / 热力图（后续可继续添加）。", page);
-    h->setStyleSheet("color:#e5e7eb; font-size:16px;");
-    ly->addWidget(h);
+    // 1. 大标题
+    auto title = new QLabel(u8"👋 欢迎使用图书馆管理系统", page);
+    title->setStyleSheet("color:#ffffff; font-size:32px; font-weight:bold;");
+    title->setAlignment(Qt::AlignCenter);
 
-    auto tip = new QLabel(u8"• 导航：输入 A/B/C/D 生成发光路径\n• 热力图：占位，后续接入", page);
-    tip->setStyleSheet("color:#9ca3af;");
-    ly->addWidget(tip);
-    ly->addStretch();
+    // 2. 副标题/Slogan
+    auto subTitle = new QLabel(u8"智慧助学 · 高效便捷 ", page);
+    subTitle->setStyleSheet("color:#60a5fa; font-size:18px; font-weight:600; letter-spacing: 2px;");
+    subTitle->setAlignment(Qt::AlignCenter);
+
+    // 3. 装饰性分割线
+    auto line = new QFrame(page);
+    line->setFrameShape(QFrame::HLine);
+    line->setFixedWidth(100);
+    line->setStyleSheet("background-color: #374151;");
+    
+    // 4. 说明文字
+    auto desc = new QLabel(
+        u8"这是一个集成了座位管理、图书检索以及专注力辅助的综合性学生端系统。\n"
+        u8"请点击左侧菜单栏开始您的学习之旅。", page);
+    desc->setStyleSheet("color:#9ca3af; font-size:15px; line-height: 150%;");
+    desc->setAlignment(Qt::AlignCenter);
+    desc->setWordWrap(true); 
+
+    // 添加到布局
+    ly->addStretch(); 
+    ly->addWidget(title);
+    ly->addWidget(subTitle);
+    
+    // 让分割线居中
+    auto hLineLay = new QHBoxLayout();
+    hLineLay->addStretch();
+    hLineLay->addWidget(line);
+    hLineLay->addStretch();
+    ly->addLayout(hLineLay);
+
+    ly->addWidget(desc);
+    ly->addStretch(); 
+
     return page;
 }
-
 QWidget* StudentWindow::buildNavigationPage() {
     auto page = new QWidget(this);
 
-    // —— 深色主题的完整样式（让文字/边框"看得见"） —— //
+    // 保持原有样式不变
     page->setStyleSheet(
         "QWidget{ background:#0b1220; }"
         "QLabel{ color:#cbd5e1; }"
-
-        // 下拉
-        "QComboBox{ color:#e5e7eb; background:#0f172a; "
-        "  border:1px solid #374151; border-radius:6px; padding:4px 8px; min-width:80px; }"
-        "QComboBox::drop-down{ width:22px; }"
-        "QComboBox QAbstractItemView{ background:#111827; color:#e5e7eb; "
-        "  selection-background-color:#2563eb; selection-color:#ffffff; }"
-
-        // 按钮
-        "QPushButton{ color:#e5e7eb; background:#1f2937; "
-        "  border:1px solid #374151; border-radius:8px; padding:6px 12px; }"
-        "QPushButton:hover{ background:#374151; }"
-        "QPushButton:pressed{ background:#2563eb; border-color:#2563eb; }"
-        "QPushButton:disabled{ color:#7c8794; background:#151a22; border-color:#2b3340; }"
-
-        // 画布
+        "QCheckBox{ color:#e5e7eb; spacing: 5px; }"
+        "QCheckBox::indicator { width: 18px; height: 18px; }"
         "#mapFrame{ background:#101319; border:1px solid #374151; border-radius:12px; }"
-        );
+    );
 
     auto root = new QVBoxLayout(page);
     root->setContentsMargins(20,20,20,20);
     root->setSpacing(12);
 
-    // 顶部控制条
+
     auto ctrl = new QHBoxLayout();
-    ctrl->setSpacing(10);
-    auto destLabel = new QLabel(u8"目标书架：", page);
-    destBox = new QComboBox(page);
-    destBox->addItems({u8"A", u8"B", u8"C", u8"D"});
-    btnGen   = new QPushButton(u8"生成路径", page);
-    btnClear = new QPushButton(u8"清除", page);
-
-    ctrl->addWidget(destLabel);
-    ctrl->addWidget(destBox);
-    ctrl->addSpacing(12);
-    ctrl->addWidget(btnGen);
-    ctrl->addWidget(btnClear);
-    ctrl->addStretch();
-
-    auto ssaaBox = new QCheckBox(u8"高质量抗锯齿(2×)", page);
+    
+    auto titleLabel = new QLabel(u8"🗺️ 图书馆 1F 平面分布图", page);
+    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #60a5fa;");
+    
+//平滑
+    auto ssaaBox = new QCheckBox(u8"启用高清矢量渲染 (SSAA)", page);
     ssaaBox->setChecked(true);
-    ctrl->addSpacing(12);
+    ssaaBox->setCursor(Qt::PointingHandCursor);
+
+    ctrl->addWidget(titleLabel);
+    ctrl->addStretch(); // 弹簧把选项推到右边
     ctrl->addWidget(ssaaBox);
 
-    // 地图画布占位
     auto canvasWidget = new NavigationCanvas(page);
-    canvasWidget->setObjectName("mapFrame");   // 复用样式边框
+    canvasWidget->setObjectName("mapFrame");
     navCanvas = canvasWidget;
 
     connect(ssaaBox, &QCheckBox::toggled, canvasWidget, &NavigationCanvas::setSuperSample);
 
-    // 底部状态
-    navStatus = new QLabel(u8"提示：选择 A/B/C/D，点击\"生成路径\"。", page);
-
+    navStatus = new QLabel(u8"提示：该视图实时渲染图书馆区域布局，支持无损缩放。", page);
     navStatus->setStyleSheet("color:#93a4b5;");
 
-    // 布局安装
     root->addLayout(ctrl);
     root->addWidget(navCanvas, 1);
     root->addWidget(navStatus);
-
-    // 信号槽
-    connect(btnGen,   &QPushButton::clicked, this, &StudentWindow::onGenerate);
-    connect(btnClear, &QPushButton::clicked, this, &StudentWindow::onClear);
-
-    // 快捷键
-    btnGen->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_G));
-    btnClear->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_L));
-
-    // 确保未被禁用（防止其他地方误设）
-    btnGen->setEnabled(true);
-    btnClear->setEnabled(true);
-    destBox->setEnabled(true);
 
     return page;
 }
 
 QWidget* StudentWindow::buildHeatmapPage() {
     auto page = new QWidget(this);
-    page->setStyleSheet("background:#0b1220;");
+    page->setStyleSheet("QWidget{ background:#0b1220; }");
+
     auto ly = new QVBoxLayout(page);
-    ly->setContentsMargins(20,20,20,20);
+    ly->setContentsMargins(20, 20, 20, 20);
+    ly->setSpacing(10);
 
-    auto lbl = new QLabel(u8"🔥 热力图占位页（后续接入）", page);
-    lbl->setStyleSheet("color:#e5e7eb; font-weight:600;");
-    auto box = new QFrame(page);
-    box->setMinimumSize(680,440);
-    box->setStyleSheet("QFrame{ background:#111827; border:1px dashed #374151; border-radius:12px;}");
+    // 顶部标题
+    auto title = new QLabel(u8"📖 系统操作说明", page);
+    title->setStyleSheet("color:#e5e7eb; font-weight:bold; font-size:20px; margin-bottom: 10px;");
+    ly->addWidget(title);
 
-    ly->addWidget(lbl);
-    ly->addWidget(box, 1);
+    auto viewer = new QTextEdit(page);
+    viewer->setReadOnly(true);
+    // 样式：深色背景，浅色文字，无边框
+    viewer->setStyleSheet(
+        "QTextEdit { "
+        "   background-color: #111827; "
+        "   color: #d1d5db; "
+        "   border: 1px solid #374151; "
+        "   border-radius: 12px; "
+        "   padding: 15px; "
+        "   font-size: 14px; "
+        "   line-height: 24px; "
+        "}"
+        "QScrollBar:vertical { width: 8px; background: #111827; }"
+        "QScrollBar::handle:vertical { background: #4b5563; border-radius: 4px; }"
+    );
+
+    // 编写 HTML 内容
+    QString htmlContent = u8R"(
+    <style>
+        h3 { color: #60a5fa; margin-top: 20px; font-size: 16px; }
+        p { color: #cbd5e1; margin-bottom: 8px; }
+        li { color: #9ca3af; margin-bottom: 4px; }
+        b { color: #e5e7eb; }
+    </style>
+
+    <h3>1. 🧭馆内地图</h3>
+    <p>用于查找学生座位位置。</p>
+    <ul>
+        <li>在下拉框中可看到目标区域（<b>A / B / C / D</b>）。</li>
+    </ul>
+
+    <h3>2. 💺 座位实况</h3>
+    <p>实时查看图书馆座位占用情况（需连接服务器）。</p>
+    <ul>
+        <li><b>绿色 (有人)：</b> 座位已被使用。</li>
+        <li><b>灰色 (没人)：</b> 座位空闲，可自由入座。</li>
+        <li>系统通过 WebSocket 实时推送状态变化，无需手动刷新。</li>
+    </ul>
+
+    <h3>3. 📚 图书查询</h3>
+    <p>快速检索馆藏书籍信息。</p>
+    <ul>
+        <li>输入书名或作者关键词（如 "C++", "Data"）。</li>
+        <li>点击搜索后，结果将显示 ISBN、索书号及借阅状态。</li>
+        <li>若显示“暂无此书籍”，请尝试更换关键词。</li>
+    </ul>
+
+    <h3>4. 🍅 专注时刻 (番茄钟)</h3>
+    <p>帮助您保持专注的学习计时器。</p>
+    <ul>
+        <li>默认设定为 <b>25分钟</b> 工作时间。</li>
+        <li>点击“开始专注”启动倒计时，结束后建议休息 5 分钟。</li>
+        <li>中途可暂停或重置计时。</li>
+    </ul>
+
+    <h3>5. 🆘 一键求助</h3>
+    <p>遇到设施故障或纠纷时使用。</p>
+    <ul>
+        <li>填写文字描述或上传现场照片。</li>
+        <li>点击提交后，管理员端会立即收到通知并处理。</li>
+    </ul>
+    )";
+
+    viewer->setHtml(htmlContent);
+    
+    ly->addWidget(viewer, 1); 
     return page;
 }
 
@@ -538,16 +588,16 @@ QWidget* StudentWindow::buildHelpPage() {
     tip->setStyleSheet("color:#93a4b5;");
     root->addWidget(tip);
 
-    // —— 文本描述 —— //
+    // 填写文本区域
     helpText_ = new QTextEdit(page);
     helpText_->setPlaceholderText(u8"例如：自习区有人高声通话 / 插座损坏 / 座位被物品长期占用…（必填其一：文字或图片）");
     helpText_->setMinimumHeight(120);
     root->addWidget(helpText_);
 
-    // —— 图片区域：预览 + 选择 —— //
+    //  图片区域：预览 + 选择
     auto imgRow = new QHBoxLayout();
     imgRow->setSpacing(12);
-
+//图片外框
     auto imgBox = new QFrame(page);
     imgBox->setObjectName("imgBox");
     imgBox->setMinimumSize(220, 160);
@@ -555,6 +605,7 @@ QWidget* StudentWindow::buildHelpPage() {
     imgLy->setContentsMargins(12,12,12,12);
     imgLy->setSpacing(8);
 
+    //图片预览，默认是无图片
     helpImgPreview_ = new QLabel(imgBox);
     helpImgPreview_->setAlignment(Qt::AlignCenter);
     helpImgPreview_->setText(u8"（无图片）");
@@ -562,6 +613,7 @@ QWidget* StudentWindow::buildHelpPage() {
     helpImgPreview_->setMinimumHeight(120);
     imgLy->addWidget(helpImgPreview_, 1);
 
+    //图片选择按钮
     helpPickBtn_ = new QPushButton(u8"选择图片…", imgBox);
     imgLy->addWidget(helpPickBtn_, 0, Qt::AlignRight);
 
@@ -570,7 +622,7 @@ QWidget* StudentWindow::buildHelpPage() {
     imgRow->addStretch();
     root->addLayout(imgRow);
 
-    // —— 操作区 —— //
+    // 重置和提交
     auto op = new QHBoxLayout();
     op->addStretch();
     helpResetBtn_  = new QPushButton(u8"重置", page);
@@ -579,7 +631,7 @@ QWidget* StudentWindow::buildHelpPage() {
     op->addWidget(helpSubmitBtn_);
     root->addLayout(op);
 
-    // —— 事件 —— //
+    // 连接
     connect(helpPickBtn_,  &QPushButton::clicked, this, &StudentWindow::onPickImage);
     connect(helpResetBtn_, &QPushButton::clicked, this, &StudentWindow::onResetHelp);
     connect(helpSubmitBtn_,&QPushButton::clicked, this, &StudentWindow::onSubmitHelp);
@@ -587,22 +639,21 @@ QWidget* StudentWindow::buildHelpPage() {
     return page;
 }
 
+// 构建座位实况页面
 QWidget* StudentWindow::buildLivePage() {
-    // ① 页面底色和字色：延续你当前的深色系风格
     auto page = new QWidget(this);
     page->setStyleSheet("QWidget{ background:#0b1220; } QLabel{ color:#cbd5e1; }");
 
-    // ② 顶层纵向布局
     auto root = new QVBoxLayout(page);
     root->setContentsMargins(20,20,20,20);
     root->setSpacing(12);
 
-    // ③ 标题
+    // 标题
     auto title = new QLabel(u8"座位实况（Demo：2×2，S1~S4）", page);
     title->setStyleSheet("font-weight:600; font-size:16px;");
     root->addWidget(title);
 
-    // ④ 2×2 宫格
+    // 2×2 的格子
     auto grid = new QGridLayout();
     grid->setHorizontalSpacing(12);
     grid->setVerticalSpacing(12);
@@ -610,7 +661,7 @@ QWidget* StudentWindow::buildLivePage() {
     liveCells_.clear();
     liveCells_.reserve(4);
 
-    // 工厂函数：做一个"卡片"
+    // Qframe是座位，右侧顶部有显示
     auto makeCell = [&](const QString& id){
         auto box = new QFrame(page);
         box->setMinimumSize(160,120);
@@ -623,7 +674,7 @@ QWidget* StudentWindow::buildLivePage() {
         auto head = new QLabel(QString(u8"座位 %1").arg(id), box);
         head->setStyleSheet("color:#e5e7eb; font-weight:600;");
 
-        // 右下角状态（初始显示 —）
+        // 右下角状态（初始显示 ）
         auto body = new QLabel(u8"—", box);
         body->setStyleSheet("color:#93a4b5;");
 
@@ -634,7 +685,7 @@ QWidget* StudentWindow::buildLivePage() {
         liveCells_.push_back(body);   // 记录下来，后面按索引设置
         return box;
     };
-
+//创建四个格子
     grid->addWidget(makeCell("S1"), 0,0);
     grid->addWidget(makeCell("S2"), 0,1);
     grid->addWidget(makeCell("S3"), 1,0);
@@ -642,12 +693,12 @@ QWidget* StudentWindow::buildLivePage() {
 
     root->addLayout(grid, 1);
 
-    // ⑤ 提示说明
+    // 提示说明
     auto tip = new QLabel(u8"颜色：绿=有人、黄=占座(有物无人)、灰=没人；下方文字为状态与 since（演示先写死）。", page);
     tip->setStyleSheet("color:#66758a;");
     root->addWidget(tip);
 
-    // ⑥ ——演示：进入页面时直接"写死"一组状态——
+    // 进入页面时直接先写一组状态
     //   S1=有人(1) S2=占座(2) S3=没人(0) S4=有人(1)
     const QString demoSince = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     liveSetCell("S1", 0, demoSince);  // 有人
@@ -659,7 +710,7 @@ QWidget* StudentWindow::buildLivePage() {
     return page;
 }
 
-/* ---------- 侧边栏切换 ---------- */
+/* 侧边栏切换 */
 void StudentWindow::gotoDashboard() {
     pages->setCurrentIndex(0);
     btnDash->setChecked(true);
@@ -707,17 +758,7 @@ void StudentWindow::onBackToLogin() {
     });
 }
 
-/* ---------- 导航页按钮占位逻辑（下一步接绘制） ---------- */
-void StudentWindow::onGenerate() {
-    const QString dest = destBox->currentText();
-    navStatus->setText(u8"已设置目标： " + dest + u8"（下一步在画布上绘制发光贝塞尔路径与粒子）");
-    // TODO：在 navCanvas 上绘制路径
-}
 
-void StudentWindow::onClear() {
-    navStatus->setText(u8"已清除路径。");
-    // TODO：清空 navCanvas
-}
 
 void StudentWindow::onPickImage() {
     const QString file = QFileDialog::getOpenFileName(
@@ -900,6 +941,7 @@ void StudentWindow::wsSend(const QByteArray& utf8Json) {
 
 
 //liveSetCell 函数负责更新座位实况页面的座位卡片显示。
+// 去掉S，找对应的Qlabel, 设置label的文字和颜色
 void StudentWindow::liveSetCell(const QString& id, int state, const QString& sinceIso) {
     bool ok = false;
     int idx = id.mid(1).toInt(&ok);
