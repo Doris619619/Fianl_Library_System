@@ -8,6 +8,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QMouseEvent>
 
+// Constructor: Create a custom CardDialog
 CardDialog::CardDialog(const QString& title,
                        const QString& text,
                        QWidget* parent)
@@ -67,12 +68,14 @@ CardDialog::CardDialog(const QString& title,
     resize(420, sizeHint().height());
 }
 
+// Mouse press event, used to implement drag functionality
 void CardDialog::mousePressEvent(QMouseEvent* e) {
     if (e->button() == Qt::LeftButton)
         dragOffset_ = e->globalPosition().toPoint() - frameGeometry().topLeft();
     QDialog::mousePressEvent(e);
 }
 
+// Mouse move event, used to implement drag functionality
 void CardDialog::mouseMoveEvent(QMouseEvent* e) {
     if (e->buttons() & Qt::LeftButton)
         move(e->globalPosition().toPoint() - dragOffset_);
