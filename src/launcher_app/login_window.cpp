@@ -130,12 +130,6 @@ QWidget* LoginWindow::buildRolePage() {
     return role;
 }
 
-
-
-
-
-
-
 void LoginWindow::onLoginClicked() {
     const QString u = user_->text().trimmed();
     const QString p = pass_->text();
