@@ -10,18 +10,11 @@
 #include <QFile>
 #include <QThread>
 #include <QHostAddress>
-
 #include <seatui/launcher/login_window.hpp>
 #include "ws/ws_hub.hpp"
-
-// ===== 可选：如果你工程里有 VisionClient 的封装（按你提供的代码名）=====
-#include <seatui/vision/VisionClient.h>   // 如果你的头文件名不同，请改为实际入口
-// ===== Judger 入口 =====
+#include <seatui/vision/VisionClient.h>
 #include <seatui/judger/seat_state_judger.hpp>
-
-// ===== 数据库（单例）=====
 #include "../db_core/SeatDatabase.h"
-// 可选：演示数据初始化
 #include "../db_core/DatabaseInitializer.h"
 
 // ---------------- HiDPI 与全局样式 ----------------
@@ -29,6 +22,7 @@ static void initHiDpi() {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 }
+
 static void applyGlobalStyle(QApplication& app) {
     QFont f("Microsoft YaHei UI"); f.setPointSize(10); app.setFont(f);
     const char* qss = R"(
@@ -64,7 +58,7 @@ static void applyGlobalStyle(QApplication& app) {
     app.setStyleSheet(qss);
 }
 
-// ---------------- Vision 线程 ----------------
+// ---------------- Vision 线程 --------------------------------------------------------------------------
 class VisionThread : public QThread {
     Q_OBJECT
 public:
@@ -74,9 +68,6 @@ protected:
         try {
             vision::VisionClient vc;
             qInfo() << "[VisionThread] 开始运行 VisionClient …";
-            // 相对“运行目录/可执行文件”的上一级：
-            // 最终运行时目录形如： .../build/.../Release/
-            // 因此 ../assets/vision/videos/demo.mp4 与 ../out 与你的旧代码一致。
             std::string video_path = "../../assets/vision/videos/demo.mp4";
             std::string out_jsonl  = "../../out/000000.jsonl";
             vc.runVision(
@@ -93,7 +84,7 @@ protected:
     }
 };
 
-// ---------------- Judger 线程 ----------------
+// ---------------- Judger 线程 ------------------------------------------------------------
 class JudgerThread : public QThread {
     Q_OBJECT
 public:
@@ -103,7 +94,6 @@ protected:
         try {
             SeatStateJudger judger;
             qInfo() << "[JudgerThread] 开始运行 SeatStateJudger …";
-            // 监听 ../out；内部是“无限循环扫描目录”的阻塞逻辑
             judger.run("../../out");
             qInfo() << "[JudgerThread] SeatStateJudger 结束";
         } catch (const std::exception& e) {
@@ -116,7 +106,7 @@ int main(int argc, char *argv[]) {
     initHiDpi();
     QApplication app(argc, argv);
 
-    // ==== 第一步：确保 DB 路径存在 ====
+    // ==== 确保 DB 路径存在 ====
     QMessageBox::information(nullptr, "启动状态", "1. 检查数据库路径...");
     QString exeDir = QCoreApplication::applicationDirPath();
     QDir dir(exeDir);
@@ -139,17 +129,13 @@ int main(int argc, char *argv[]) {
     if (!QFile::exists(dbPath)) { QFile f(dbPath); if (!f.open(QIODevice::WriteOnly)) {
             QMessageBox::critical(nullptr, "错误", "无法创建数据库文件"); return -1; } f.close(); }
 
-    // ==== 第二步：初始化 DB（建表） ====
+    // ==== 初始化 DB ====
     QMessageBox::information(nullptr, "启动状态", "2. 初始化数据库...");
     try {
         auto& db = SeatDatabase::getInstance(dbPath.toStdString());
         if (!db.initialize()) {
             QMessageBox::critical(nullptr,"数据库错误","数据库初始化失败！"); return -1;
         }
-
-        // （可选）初始化演示数据：需要时解除注释
-        // DatabaseInitializer init(db);
-        // init.initializeSampleData();
 
         QMessageBox::information(nullptr, "启动状态", "3. 数据库初始化成功");
     } catch (const std::exception& e) {
@@ -160,7 +146,7 @@ int main(int argc, char *argv[]) {
     app.setQuitOnLastWindowClosed(true);
     applyGlobalStyle(app);
 
-    // ==== 第三步：启动内置 WS 服务（推送 seat_update） ====
+    // ====启动内置 WS 服务（推送 seat_update） ====
     QMessageBox::information(nullptr, "启动状态", "4. 启动 WebSocket 服务...");
     static WsHub* wsHub = new WsHub(&app);
     const quint16 port = 12345;
