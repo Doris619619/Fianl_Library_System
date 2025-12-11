@@ -29,9 +29,6 @@ signals:
     void backToLoginRequested();
 
 private slots://增加槽位
-    // 导航页
-    void onGenerate();   // 生成路径
-    void onClear();      // 清除
     // 侧边栏"返回登录"
     void onBackToLogin();
 
@@ -58,9 +55,6 @@ private:
 
     // ===== 导航页控件 =====
     QWidget*     navCanvas = nullptr;               // 地图画布占位（后续绘制路径）
-    QComboBox*   destBox   = nullptr;               // 目标书架 A/B/C/D
-    QPushButton* btnGen    = nullptr;               // 生成路径
-    QPushButton* btnClear  = nullptr;               // 清除
     QLabel*      navStatus = nullptr;               // 状态提示
 
     // ===== 图书检索页控件 =====
