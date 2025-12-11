@@ -9,21 +9,21 @@
 #include <memory>
 #include <mutex>
 
-#include "DataTypes.h"  // 包含共享的数据类型
+#include "DataTypes.h"  
 
 class SeatDatabase {
 public:
-    // 单例模式获取实例
+    // Get instance using Singleton pattern
     static SeatDatabase& getInstance(const std::string& db_path = "../out/seating_system.db");
     
-    // 禁止拷贝和赋值
+    // Copying and assignment are prohibited
     SeatDatabase(const SeatDatabase&) = delete;
     SeatDatabase& operator=(const SeatDatabase&) = delete;
     
-    // 数据库初始化
+    // Database Initialization
     bool initialize();
     
-    // 插入操作
+    // Insert operation
     bool insertSeatEvent(const std::string& seat_id, 
                         const std::string& state, // "Seated", "Unseated", "Anomaly"
                         const std::string& timestamp, 
@@ -38,38 +38,37 @@ public:
                                 const std::string& seat_id, 
                                 int occupied_minutes);
     
-    // 基础数据插入
+    // Basic Data Insertion
     bool insertSeat(const std::string& seat_id, 
                    int roi_x, int roi_y, 
                    int roi_width, int roi_height);
     
-    // 查询操作
+    // Query operation
     int getOccupiedMinutes(const std::string& seat_id, 
                           const std::string& start_time, 
                           const std::string& end_time);
     
     double getOverallOccupancyRate(const std::string& date_hour);
     
-    // UI 数据接口
+    // UI Data Interface
     std::vector<SeatStatus> getCurrentSeatStatus();
     BasicStats getCurrentBasicStats();
     std::vector<HourlyData> getTodayHourlyData();
-    std::map<std::string, double> getHourlyZoneOccupancy(const std::string& date_hour);
     std::vector<double> getDailyHourlyOccupancy(const std::string& date);
     
-    // 批量操作
+    // Batch operation
     bool beginTransaction();
     bool commitTransaction();
     bool rollbackTransaction();
     
-    // 工具方法
+    // Utility method
     std::vector<std::string> getAllSeatIds();
     std::string getCurrentTimestamp();
 
-     // 添加exec方法
+     // Add exec method
     bool exec(const std::string& sql);
     
-    // 告警入库接口
+    // Alarm Entry Interface
     bool insertAlert(
         const std::string& alert_id,
         const std::string& seat_id,
@@ -79,10 +78,10 @@ public:
         bool is_processed = false
     );
 
-     // 获取未处理告警
+     // Get Unprocessed Alerts
     std::vector<AlertData> getUnprocessedAlerts();
 
-    // 标记告警为已处理
+    // Mark alert as resolved
     bool markAlertAsProcessed(const std::string& alert_id);
 private:
     SeatDatabase(const std::string& db_path);
