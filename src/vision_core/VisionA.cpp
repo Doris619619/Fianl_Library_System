@@ -1,4 +1,3 @@
-// 简化版本的 VisionA：当前仅加载座位并返回 UNKNOWN 状态
 #include "seatui/vision/VisionA.h"
 #include "seatui/vision/Publish.h"
 #include "seatui/vision/SeatRoi.h"
@@ -15,26 +14,27 @@
 
 namespace vision {
 
-struct VisionA::Impl {
-    VisionConfig cfg;                   // configurator &cfg
-    std::vector<SeatROI> seats;
-    std::unique_ptr<OrtYoloDetector> detector; // 延后构造以使用 cfg.model_path
+struct VisionA::Impl {  // Inner Implementation
+    
+    // cfg initialization
+    VisionConfig cfg;                          // configurator &cfg
+    std::vector<SeatROI> seats;                // cache seats of each frame
+    std::unique_ptr<OrtYoloDetector> detector; 
     Mog2Manager mog2{ Mog2Config{
         cfg.mog2_history,
         cfg.mog2_var_threshold,
         cfg.mog2_detect_shadows
     } };
-    // 存储最后一帧的所有检测结果
-    std::vector<BBox> last_persons;
+    std::vector<BBox> last_persons;            // record last frame result
     std::vector<BBox> last_objects;
-    std::unique_ptr<Snapshotter> snapshotter; // 快照器
+    std::unique_ptr<Snapshotter> snapshotter; 
     struct SizeParseResult {
         cv::Mat img;
         float scale;
         int dx, dy;
     };
 
-    // method: resize the input img
+    // method: resize src img to square input 640 * 640, same ratio, no squeezing
     static SizeParseResult sizeParse(const cv::Mat& src, int target_size) {
         int w = src.cols, h = src.rows;
         float scaling_rate = std::min((float)target_size / w, (float)target_size / h);
@@ -43,7 +43,7 @@ struct VisionA::Impl {
         int dx = (target_size - new_w) / 2;
         int dy = (target_size - new_h) / 2;
 
-        cv::Mat resized;
+        cv::Mat resized;                                  // amend copy
         cv::resize(src, resized, cv::Size(new_w, new_h));
 
         cv::Mat canvas = cv::Mat::zeros(target_size, target_size, src.type());
@@ -54,34 +54,31 @@ struct VisionA::Impl {
     }
 };
 
-VisionA::VisionA(const VisionConfig& cfg)
-    : impl_(new Impl)
+VisionA::VisionA(const VisionConfig& cfg) // Constructor
+    : impl_(new Impl)                     // create Impl instance pointer
 {
     impl_->cfg = cfg;
     loadSeatsFromJson(cfg.seats_json, impl_->seats);
 
-    // 构造检测器
+    // Construct Detector
     impl_->detector.reset(new OrtYoloDetector(OrtYoloDetector::SessionOptions{
-        cfg.model_path,
-        cfg.input_w,
-        cfg.input_h,
-        false,
-        cfg.use_single_multiclass_model
+        cfg.model_path,                   // path of the model used
+        cfg.input_w,                      // model input width
+        cfg.input_h,                      // model input height
+        false,                            // whether fake infer (initial test usage)
+        cfg.use_single_multiclass_model   // whether use newly fine-tuned multiclass model
     }));
-    // 初始化快照策略
-    SnapshotPolicy policy;
-    policy.min_interval_ms = cfg.snapshot_min_interval_ms;
-    policy.on_change_only  = cfg.snapshot_on_change_only;
-    policy.heartbeat_ms    = cfg.snapshot_heartbeat_ms;
-    policy.jpg_quality     = cfg.snapshot_jpg_quality;
-    impl_->snapshotter.reset(new Snapshotter(cfg.snapshot_dir, policy));
-
-    // 输出VisionA配置内的座位表绝对路径与座位计数，检测座位计数是否准确（按照demo应当为4）
-    //std::cout << "[VisionA] Seats file abs: " << std::filesystem::absolute(cfg.seats_json) << ", seatCount=" << vision.seatCount() << std::endl;
+    
+    // Initialize Snapshotter policy & Snapshotter
+    SnapshotPolicy policy;                                               // init policy
+    policy.min_interval_ms = cfg.snapshot_min_interval_ms;               // min saving interval
+    policy.on_change_only  = cfg.snapshot_on_change_only;                // save only if state change
+    policy.heartbeat_ms    = cfg.snapshot_heartbeat_ms;                  // save const interval (no need state chg)
+    policy.jpg_quality     = cfg.snapshot_jpg_quality;                   // saving quality
+    impl_->snapshotter.reset(new Snapshotter(cfg.snapshot_dir, policy)); // constrcut sanpshotter
 
     std::cout << "[VisionA] Seats file abs: " << std::filesystem::absolute(cfg.seats_json)
               << ", seatCount=" << this->seatCount() << std::endl;
-
 }
 
 
@@ -96,7 +93,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
                                                   int64_t ts_ms,
                                                   int64_t frame_index)
 {
-    auto t0 = std::chrono::high_resolution_clock::now();
+    auto t0 = std::chrono::high_resolution_clock::now();   // time-stamp entering func.
     std::vector<SeatFrameState> out;
     out.reserve(impl_->seats.size());
 
@@ -105,18 +102,18 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
     // ======== PROCESSING PIPELINE ========
     std::cout << "[VisionA] Processing frame index: " << frame_index << " at " << ts_ms << " ms\n";
 
-    // 1. 前景分割（原尺寸）
+    // 1. Foregroung Segmentation (original ratio)
     cv::Mat fg_mask = impl_->mog2.apply(bgr);
 
     std::cout << "[VisionA] Foreground mask computed.\n";
 
-    // 2. 预处理：letterbox（保持比例，减少形变）
-    auto sizeParseRes = Impl::sizeParse(bgr, 640);
+    // 2. Preprocess: letterbox (same ratio)
+    auto sizeParseRes = Impl::sizeParse(bgr, 640);         // preprocess as square 640*640 as input
     auto parsed_img = sizeParseRes.img;
 
     std::cout << "[VisionA] Image resized for inference.\n";
 
-    // 3. 推理: chg RawDet -> BBox
+    // 3. Infer: chg RawDet -> BBox
     std::vector<RawDet> raw_detected;
     try {
         raw_detected = impl_->detector->infer(parsed_img);
@@ -124,7 +121,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
         std::cout << "[VisionA] Inference successful. Raw detections obtained: " << raw_detected.size() << "\n";
 
     } catch (const std::exception& ex) {
-        // 捕获 ONNX/推理异常，打印一次并继续返回空检测，避免整个程序退出
+        // catch onnx infer error, report and continue empty detection
         static bool warned = false;
         if (!warned) {
             std::cerr << "[VisionA] infer exception: " << ex.what() << "\n";
@@ -143,6 +140,8 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
         float sy = static_cast<float>(bgr.rows) / 640.f;
         float x = r.cx - r.w * 0.5f;
         float y = r.cy - r.h * 0.5f;
+
+        // record info. from raw detected to bounding box
         b.rect = cv::Rect(static_cast<int>(x * sx),
                           static_cast<int>(y * sy),
                           static_cast<int>(r.w * sx),
@@ -153,7 +152,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
         dets.push_back(b);
     }
 
-    // 4. NMS：按类别做 NMS，减少重叠框
+    // 4. Nms: NMS by classwise, reduce overlapping boxes
     const float nms_iou = std::max(0.f, std::min(1.f, impl_->cfg.nms_iou));
     if (!dets.empty() && nms_iou > 0.f) {
         dets = nmsClasswise(dets, nms_iou);
@@ -161,7 +160,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
 
     std::cout << "[VisionA] Inference completed. Detected " << dets.size() << " objects (after NMS).\n";
 
-    // 5. 人与物简易分类
+    // 5. person & object classification
     std::vector<BBox> persons, objects;   // persons boxes and objects boxes
     for (auto& b : dets) {
         if (b.cls_name == "person") persons.push_back(b);
@@ -170,11 +169,60 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
 
     std::cout << "[VisionA] Classified detections into " << persons.size() << " persons and " << objects.size() << " objects.\n";
 
-    // 保存本帧所有检测结果供外部访问
+    // save as last_data for external access
     impl_->last_persons = persons;
     impl_->last_objects = objects;
 
-    // 6. 座位归属: 根据多边形包含或 IoU 判定座位内元素
+    // 6. Draw and save annotated img
+    bool is_annotate_enabled = impl_->cfg.annotate_enabled;
+    if (is_annotate_enabled) {
+
+        // report enabled annotation
+        std::cout << "[VisionA] Enabled annotation on imgs (person & objects BBox).\n"
+                  << "[VisionA] Default save path: ./annotated/BBox \n";
+
+        try {
+            // check and create out dir
+            namespace fs = std::filesystem;
+            fs::path out_dir("../../annotated/BBox");
+            if (!fs::exists(out_dir)) {
+                std::cout << "[VisionA] Annotation directory do not exists, creating ../../annotated/BBox\n";
+                fs::create_directories(out_dir);
+            }
+                
+            // draw
+            cv::Mat annotating_img = bgr.clone();
+            // draw person (red)
+            for (const auto& p : persons) {
+                cv::rectangle(annotating_img, p.rect, cv::Scalar(0, 0, 255), 2);   // BBox of person
+                char label[64];
+                std::snprintf(label, sizeof(label), "person %.2f", p.conf);
+                cv::putText(annotating_img, label, {p.rect.x, std::max(0, p.rect.y-5)}, cv::FONT_HERSHEY_SIMPLEX, 0.5, {0,0,255}, 1);
+            }
+            // draw object (blue)
+            for (const auto& o : objects) {
+                cv::rectangle(annotating_img, o.rect, cv::Scalar(255, 0, 0), 2);   // BBox of object
+                char label[64];
+                std::snprintf(label, sizeof(label), "obj(%d) %.2f", o.cls_id, o.conf);
+                cv::putText(annotating_img, label, {o.rect.x, std::max(0, o.rect.y-5)}, cv::FONT_HERSHEY_SIMPLEX, 0.5, {255,0,0}, 1);
+            }
+
+            // 保存文件名: frame_{index}.jpg
+            char fname[128];
+            std::snprintf(fname, sizeof(fname), "frame_%lld.jpg", (long long)frame_index);
+            fs::path out_path = out_dir / fname;
+            cv::imwrite(out_path.string(), annotating_img);
+        } catch (const std::exception& exception) {
+            static bool warned = false;
+            if (!warned) {
+                std::cerr << "[VisionA] annotate save failed: " << exception.what() << "\n";
+                warned = true;
+            }
+        }
+    }
+    
+    // 7. Seat belonging: judge element inside box by poly-inside / IoU
+    // record IoU of seats
     auto iouSeat = [](const cv::Rect& seat, const cv::Rect& box) {
         int ix = std::max(seat.x, box.x);
         int iy = std::max(seat.y, box.y);
@@ -188,7 +236,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
 
     std::cout << "[VisionA] Calculating seat occupancy based on polygon and IoU.\n";
 
-    // 多边形包含判定：检测框中心点是否在多边形内
+    // poly-inside: (center in poly ? true : false)
     auto isBoxInPoly = [](const std::vector<cv::Point>& poly, const cv::Rect& box) {
         if (poly.size() < 3) return false;
         cv::Point center(box.x + box.width / 2, box.y + box.height / 2);
@@ -196,28 +244,31 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
         return dist >= 0;  // >= 0 表示在多边形内或边界上
     };
 
-    /*      Output SeatFrameState for each seat
-    *  record all the result into the vector containing all the SeatFrameState
-    *  (denoted as out, std::vector<SeatFrameState> )
-    */
+    // 8. record SeatFrameState for each seat for output
     for (auto& each_seat : impl_->seats) {  // for each seat in seats table
+
+        // ======= record info. in each seat =======
+        
         SeatFrameState sfs;
         sfs.seat_id = each_seat.seat_id;
         sfs.ts_ms = ts_ms;
         sfs.frame_index = frame_index;
         sfs.seat_roi = each_seat.rect;
-        sfs.seat_poly = each_seat.poly;  // 保存多边形信息
+        sfs.seat_poly = each_seat.poly;     // save poly info.
 
-        // 判断使用多边形还是矩形
+        // ======= collect person & object info. in seat =======
+        
+        // judge using poly / rect
         bool use_poly = each_seat.poly.size() >= 3;
 
         // collect boxes inside seat
         for (auto& p : persons) {
             bool inside = false;
-            if (use_poly) {
-                // 增强：框中心或四角任一在多边形内
+            if (use_poly) {  // seat poly + (center / corner inside seat poly)
+                
+                // center inside poly
                 if (isBoxInPoly(each_seat.poly, p.rect)) inside = true;
-                else {
+                else { // one of corners inside poly
                     std::array<cv::Point,4> corners = {
                         cv::Point(p.rect.x, p.rect.y),
                         cv::Point(p.rect.x+p.rect.width, p.rect.y),
@@ -228,19 +279,21 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
                         if (cv::pointPolygonTest(each_seat.poly, c, false) >= 0) { inside = true; break; }
                     }
                 }
-            } else {
+            } else { // seat rect + IoU
                 inside = (iouSeat(each_seat.rect, p.rect) > impl_->cfg.iou_seat_intersect);
             }
-            if (inside) {
+            if (inside) { // record if inside
                 sfs.person_boxes_in_roi.push_back(p);
                 sfs.person_conf_max = std::max(sfs.person_conf_max, p.conf);
             }
         }
         for (auto& o : objects) {
             bool inside = false;
-            if (use_poly) {
+            if (use_poly) { // seat poly + (center / corner inside seat poly)
+                
+                // center inside poly
                 if (isBoxInPoly(each_seat.poly, o.rect)) inside = true;
-                else {
+                else { // one of corners inside poly
                     std::array<cv::Point,4> corners = {
                         cv::Point(o.rect.x, o.rect.y),
                         cv::Point(o.rect.x+o.rect.width, o.rect.y),
@@ -251,50 +304,58 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
                         if (cv::pointPolygonTest(each_seat.poly, c, false) >= 0) { inside = true; break; }
                     }
                 }
-            } else {
+            } else { // seat rect + IoU
                 inside = (iouSeat(each_seat.rect, o.rect) > impl_->cfg.iou_seat_intersect);
             }
-            if (inside) {
+            if (inside) { // record if inside
                 sfs.object_boxes_in_roi.push_back(o);
                 sfs.object_conf_max = std::max(sfs.object_conf_max, o.conf);
             }
         }
 
-        // 前景占比：多边形优先
-        if (use_poly) {
+        // ======= record foreground ratio =======
+
+        // record fg_ratio 
+        if (use_poly) {      // poly fg_ratio
             sfs.fg_ratio = Mog2Manager::ratioInPoly(fg_mask, each_seat.poly);
-        } else {
+        } else {             // rect fg_ratio
             sfs.fg_ratio = impl_->mog2.ratioInRoi(fg_mask, each_seat.rect);
         }
+
+        // ======= counting & has_xxx judging =======
+        
         sfs.person_count = static_cast<int>(sfs.person_boxes_in_roi.size());
         sfs.object_count = static_cast<int>(sfs.object_boxes_in_roi.size());
         sfs.has_person = sfs.person_count > 0 && sfs.person_conf_max >= impl_->cfg.conf_thres_person;  // 有人 = 人数 > 0 and conf > conf_thres_person
         sfs.has_object = sfs.object_count > 0 && sfs.object_conf_max >= impl_->cfg.conf_thres_object;  // 有物 = 物数 > 0 and conf > conf_thres_object
 
+        // ======= record occupancy state =======
+        
         // occupancy rule: has_person => OCCUPIED, else if has_object => OBJECT_ONLY, else EMPTY
         if (sfs.has_person) {
             sfs.occupancy_state = SeatOccupancyState::PERSON;
         } else if (sfs.has_object) {
             sfs.occupancy_state = SeatOccupancyState::OBJECT_ONLY;
         } else {
-            // 使用前景兜底：若无检测但前景占比超过阈值，标记为 OBJECT_ONLY（可能有人低头/遮挡）
             if (sfs.fg_ratio >= impl_->cfg.mog2_fg_ratio_thres) {
-                sfs.occupancy_state = SeatOccupancyState::OBJECT_ONLY;
+                sfs.occupancy_state = SeatOccupancyState::FREE;
             } else {
                 sfs.occupancy_state = SeatOccupancyState::FREE;
             }
         }
 
-        // 快照策略: 使用 occupancy_state + person/object count 生成状态哈希
+        // ======= Snapshotter & snapshot saving (not well-integrated yet) =======
+        
+        // policy: occupancy_state + person/object count 
         if (impl_->snapshotter) {
             int state_hash = static_cast<int>(sfs.occupancy_state) * 100 + sfs.person_count * 10 + sfs.object_count;
             // 选择用于绘制的框集合（优先人，其次物）
             std::vector<cv::Rect> snap_boxes;
-            if (!sfs.person_boxes_in_roi.empty()) {
+            if (!sfs.person_boxes_in_roi.empty()) {                                     // 有人
                 for (auto &b : sfs.person_boxes_in_roi) snap_boxes.push_back(b.rect);
-            } else if (!sfs.object_boxes_in_roi.empty()) {
+            } else if (!sfs.object_boxes_in_roi.empty()) {                              // 有物
                 for (auto &b : sfs.object_boxes_in_roi) snap_boxes.push_back(b.rect);
-            } else {
+            } else {                                                                    // 无人无物
                 snap_boxes.push_back(sfs.seat_roi); // 无检测时使用座位 ROI
             }
             std::string snap_path = impl_->snapshotter->saveSnapshot(
@@ -310,7 +371,7 @@ std::vector<SeatFrameState> VisionA::processFrame(const cv::Mat& bgr,
 
     auto t1 = std::chrono::high_resolution_clock::now();
     int total_ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
-    for (auto& each_sfs : out) each_sfs.t_post_ms = total_ms; // 简化: 全流程耗时
+    for (auto& each_sfs : out) each_sfs.t_post_ms = total_ms; // 全流程耗时
     return out;
 }
 
@@ -320,7 +381,7 @@ void VisionA::getLastDetections(std::vector<BBox>& out_persons, std::vector<BBox
 }
 
 void VisionA::setPublisher(Publisher* p) {
-    // 留空：demo 未使用
+    // 留空
     (void)p;
 }
 
