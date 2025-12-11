@@ -17,40 +17,33 @@
 #include <QGraphicsDropShadowEffect>
 #include <QColor>
 #include <QMessageBox>
-
 #include <QDialog>
 #include <QFrame>
-
 #include <QGraphicsDropShadowEffect>
 #include <QMouseEvent>
-
 #include <QTimer>
 #include <QGuiApplication>
 #include <QScreen>
-#include <QMessageBox>   // 顶部若还没包含，补上
-
-
-
-
+#include <QMessageBox>
 
 LoginWindow::LoginWindow(QWidget* parent)
     : QMainWindow(parent), stacked_(new QStackedWidget(this)),
     user_(nullptr), pass_(nullptr), msg_(nullptr) {
-    setWindowTitle(u8"SeatUI 登录");
-    setCentralWidget(stacked_);
-    stacked_->addWidget(buildLoginPage()); // index 0
+    setWindowTitle(u8"SeatUI 登录");// Set the window title.
+    setCentralWidget(stacked_);// Set the central widget of the main window to stacked_.
+    stacked_->addWidget(buildLoginPage()); // Add the login page (index 0).
     stacked_->addWidget(buildRolePage());  // index 1
 }
 
-QWidget* LoginWindow::buildLoginPage() {
-    auto page = new QWidget(this);
 
-    // 居中容器（左右留白）
+//Build the login page.
+QWidget* LoginWindow::buildLoginPage() {
+    auto page = new QWidget(this);// Create a new page.
+
     auto outer = new QVBoxLayout(page);
     outer->setContentsMargins(24, 24, 24, 24);
     outer->addStretch();
 
-    // 卡片
     auto card = new QFrame(page);
     card->setObjectName("card");
     card->setMinimumWidth(420);
@@ -83,7 +76,6 @@ QWidget* LoginWindow::buildLoginPage() {
     pass_->setPlaceholderText(u8"密码");
     pass_->setEchoMode(QLineEdit::Password);
 
-    // 密码显示/隐藏
     auto toggle = new QAction(u8"显示", pass_);
     toggle->setCheckable(true);
     pass_->addAction(toggle, QLineEdit::TrailingPosition);
@@ -123,16 +115,16 @@ QWidget* LoginWindow::buildLoginPage() {
     return page;
 }
 
+//Build the role selection page.
 QWidget* LoginWindow::buildRolePage() {
-    // 角色选择单独做成一个小部件（两个大按钮）
     auto role = new RoleSelector(this);
 
-    // 选择后弹对应主窗口（注意：本窗口不关闭，便于回退与测试）
+    // After selection, launch the corresponding main window (this window remains open to facilitate fallback and testing).
+
+
     connect(role, &RoleSelector::openStudent, this, [this]() {
-        // 懒加载到 RoleSelector 内部实现里完成（见 role_selector.cpp）
     });
     connect(role, &RoleSelector::openAdmin, this, [this]() {
-        // 同上
     });
 
     return role;
