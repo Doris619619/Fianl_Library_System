@@ -474,6 +474,29 @@ QWidget* StudentWindow::buildBookSearchPage() {
     // result table
     bookTable = new QTableWidget(page);
     bookTable->setColumnCount(9);
+    bookTable->setStyleSheet(
+        "QTableWidget {"
+        "   background-color: #0f172a;"   
+        "   color: #e5e7eb;"              
+        "   gridline-color: #334155;"     
+        "   border: 1px solid #334155;"   
+        "   border-radius: 8px;"
+        "   selection-background-color: #334155;" 
+        "   selection-color: #ffffff;"            
+        "}"
+        "QHeaderView::section {"         
+        "   background-color: #1e293b;"   
+        "   color: #94a3b8;"             
+        "   padding: 8px;"
+        "   border: none;"
+        "   border-bottom: 1px solid #334155;"
+        "   border-right: 1px solid #0f172a;"
+        "}"
+        "QTableCornerButton::section {"   
+        "   background-color: #1e293b;"
+        "   border: none;"
+        "}"
+    );
     bookTable->setHorizontalHeaderLabels({
         "ISBN","Title","Author","Publisher","Date","Category","CallNumber","Total","Available"
     });
